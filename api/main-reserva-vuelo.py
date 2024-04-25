@@ -5,6 +5,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from pydantic import BaseModel
+from typing import List
 
 # Configuración del registro de eventos
 logging.basicConfig(level=logging.INFO)
@@ -84,18 +85,22 @@ flight_system = FlightReservation()
 # Definiciones de Modelos y Servicios de FastAPI
 class FlightView(BaseModel):
     id: int
-    number: str
+    number: int
     departure_city: str
     arrival_city: str
     
 class ReservationView(BaseModel):
     id: int
+    number: int
     flight_number: str
     passenger_name: str
     seat_number: str
     flight: FlightView
     
-app = FastAPI()
+class ReservationsResponse(BaseModel):
+    reservations: List[ReservationView]
+    
+app = FastAPI(swagger_ui_parameters={"syntaxHighlight.theme": "obsidian"})
 
 """ Consultar todos los vuelos """
 @app.get("/flights/")
@@ -112,14 +117,32 @@ async def list_flight(db=Depends(get_db)):
 """ Consultar todos las reservas """
 @app.get("/reservations/")
 async def list_reservations(db=Depends(get_db)):
-    logging.info("Realizando consulta de todos las reservas")
-    
+    logging.info("Realizando consulta de todos las reservas")    
     query = db.query(Reservation).all()
     
     if query is None or not query:
         raise HTTPException(status_code=404, detail="Reservations not found")
     
-    return query 
+    reservations = []
+    
+    for reservation in query:
+        reservation_info = ReservationView(
+            flight=FlightView(
+                id=reservation.flight.id,
+                number=reservation.flight.number,
+                departure_city=reservation.flight.departure_city,
+                arrival_city=reservation.flight.arrival_city
+            ),
+            id=reservation.id,
+            number=reservation.number,
+            passenger_name=reservation.passenger_name,
+            seat_number=reservation.seat_number,
+            flight_number=reservation.flight_number
+        )
+        
+        reservations.append(reservation_info)
+    
+    return reservations 
 
 """ Consultar una reserva por su id """
 @app.get("/reservations/{number}", response_model=ReservationView)
@@ -127,3 +150,33 @@ async def read_reservation(number: int, db=Depends(get_db)):
     logger.info(f"Buscando reserva con: {number}")
     
     return flight_system.get_reservation_by_number(db, number)
+
+""" Crear una reserva """
+@app.post("/reservations/", response_model=ReservationView)
+async def create_reservation(reservation_data: ReservationView, db=Depends(get_db)):
+    logger.info(f"Creando la reserva con info: {reservation_data}")
+    
+    flight_data = reservation_data.flight
+    
+    flight = Flight(
+        number=flight_data.number,
+        departure_city=flight_data.departure_city,
+        arrival_city=flight_data.arrival_city
+    )
+        
+    # Crear la nueva reserva
+    reservation_data = Reservation(
+        flight=flight,
+        number=reservation_data.number,
+        passenger_name=reservation_data.passenger_name,
+        seat_number=reservation_data.seat_number,
+        flight_number=reservation_data.flight_number 
+    )
+    
+    # Guardar la nueva reserva en la base de datos
+    db.add(reservation_data)
+    db.commit()
+    db.refresh(reservation_data)
+    
+    # Devolver la reserva creada
+    return reservation_data
