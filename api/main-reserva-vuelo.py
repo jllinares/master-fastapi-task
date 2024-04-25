@@ -30,6 +30,7 @@ class Reservation(Base):
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     flight_number = Column(String, ForeignKey('vuelo.number'))
+    number = Column(Integer)
     passenger_name = Column(String)
     seat_number = Column(String)
     flight = relationship("Flight")
@@ -53,7 +54,7 @@ class FlightReservation:
         db.commit()
         logger.info(f"Vuelo agregado : {flight.number}")
 
-    def get_flight_by_number(self, db, flight_number: str) -> Flight:
+    def get_flight_by_number(self, db, flight_number: int) -> Flight:
         flight = db.query(Flight).filter(Flight.number == flight_number).first()
         
         if flight:
@@ -61,6 +62,15 @@ class FlightReservation:
             return flight
         
         raise HTTPException(status_code=404, detail="Flight not found")
+    
+    def get_reservation_by_number(self, db, reservation_number: int) -> Reservation:
+        reservation = db.query(Reservation).filter(Reservation.number == reservation_number).first()
+        
+        if reservation:
+            logger.info(f"Reserva encontrada: {reservation.number}")
+            return reservation
+        
+        raise HTTPException(status_code=404, detail="Reservation not found")
 
     def make_reservation(self, db, reservation: Reservation) -> Reservation:
         db.add(reservation)
@@ -72,14 +82,22 @@ flight_system = FlightReservation()
 
 
 # Definiciones de Modelos y Servicios de FastAPI
-class FligthView(BaseModel):
+class FlightView(BaseModel):
     id: int
     number: str
     departure_city: str
     arrival_city: str
     
+class ReservationView(BaseModel):
+    id: int
+    flight_number: str
+    passenger_name: str
+    seat_number: str
+    flight: FlightView
+    
 app = FastAPI()
 
+""" Consultar todos los vuelos """
 @app.get("/flights/")
 async def list_flight(db=Depends(get_db)):
     logging.info("Realizando consulta de todos los vuelos")
@@ -91,3 +109,21 @@ async def list_flight(db=Depends(get_db)):
     
     return query 
 
+""" Consultar todos las reservas """
+@app.get("/reservations/")
+async def list_reservations(db=Depends(get_db)):
+    logging.info("Realizando consulta de todos las reservas")
+    
+    query = db.query(Reservation).all()
+    
+    if query is None or not query:
+        raise HTTPException(status_code=404, detail="Reservations not found")
+    
+    return query 
+
+""" Consultar una reserva por su id """
+@app.get("/reservations/{number}", response_model=ReservationView)
+async def read_reservation(number: int, db=Depends(get_db)):
+    logger.info(f"Buscando reserva con: {number}")
+    
+    return flight_system.get_reservation_by_number(db, number)
