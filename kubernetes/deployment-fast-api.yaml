@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: backend-fast-api
-        image: javierllinares/fast-api-tarea:210
+        image: javierllinares/fast-api-tarea:1.0
         ports:
         - containerPort: 8000
 ---
