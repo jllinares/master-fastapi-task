@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy import create_engine, Column, Integer, String, Text, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional
 
 # Configuración del log
@@ -21,7 +21,7 @@ Base = declarative_base()
 class Flight(Base):
     __tablename__ = "vuelo"
     
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=False)
     number = Column(Integer)
     departure_city = Column(Text)
     arrival_city = Column(Text)
@@ -29,12 +29,12 @@ class Flight(Base):
 class Reservation(Base):
     __tablename__ = "reserva"
     
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    id = Column(Integer, primary_key=True, index=True, autoincrement=False)
     flight_number = Column(String, ForeignKey('vuelo.number'))
     number = Column(Integer)
     passenger_name = Column(String)
     seat_number = Column(String)
-    flight = relationship("Flight")
+    flight = relationship("Flight", uselist=False)
 
 # Crea la tabla si no existe
 Base.metadata.create_all(bind=engine)
@@ -120,7 +120,7 @@ class FlightView(BaseModel):
     arrival_city: str
     
 class ReservationView(BaseModel):
-    id: int
+    id: int 
     number: int
     flight_number: str
     passenger_name: str
@@ -197,12 +197,14 @@ async def create_reservation(reservation_data: ReservationView, db=Depends(get_d
     flight_data = reservation_data.flight
     
     flight = Flight(
+        id=flight_data.id,
         number=flight_data.number,
         departure_city=flight_data.departure_city,
         arrival_city=flight_data.arrival_city
     )
         
     reservation_data = Reservation(
+        id=reservation_data.id,
         flight=flight,
         number=reservation_data.number,
         passenger_name=reservation_data.passenger_name,

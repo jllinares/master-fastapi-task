@@ -19,7 +19,9 @@ RUN python -m venv /py && \
         kub-user
  
 ENV PATH="/py/bin:$PATH"
- 
+
+RUN chown -R kub-user:kub-user /app
+
 USER kub-user
  
-CMD ["uvicorn", "main-model-db:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main-reserva-vuelo:app", "--host", "0.0.0.0", "--port", "8000"]
