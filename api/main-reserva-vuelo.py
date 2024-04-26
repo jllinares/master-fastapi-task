@@ -30,7 +30,7 @@ class Reservation(Base):
     __tablename__ = "reserva"
     
     id = Column(Integer, primary_key=True, index=True, autoincrement=False)
-    flight_number = Column(String, ForeignKey('vuelo.number'))
+    flight_number = Column(Integer, ForeignKey('vuelo.number'))
     number = Column(Integer)
     passenger_name = Column(String)
     seat_number = Column(String)
@@ -122,19 +122,18 @@ class FlightView(BaseModel):
 class ReservationView(BaseModel):
     id: int 
     number: int
-    flight_number: str
+    flight_number: int
     passenger_name: str
     seat_number: str
     flight: Optional[FlightView] = None
     
 class ReservationUpdateView(BaseModel):
-    flight_number: Optional[int] = None
     passenger_name: Optional[str] = None
     seat_number: Optional[str] = None
     
 class ReservationUpdateResponseView(BaseModel):
     id: int
-    flight_number: str
+    flight_number: int
     passenger_name: str
     seat_number: str
         
@@ -224,10 +223,6 @@ async def update_reservation(id: int, reservation_data: ReservationUpdateView, d
     logger.info(f"Actualizando la reserva con id: {id}")
     
     existing_reservation = flight_system.get_reservation_by_id(db, id)
-    
-    if reservation_data.flight_number:
-        logger.info("Actualizando numero de vuelo")
-        existing_reservation.flight_number = reservation_data.flight_number
     
     if reservation_data.passenger_name:
         logger.info("Actualizando nombre del pasajero")
